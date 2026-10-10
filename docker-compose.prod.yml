@@ -1,0 +1,41 @@
+# Server overrides (e.g. an Oracle Cloud VM). Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Adds Caddy for HTTPS; Moodle is no longer published directly on the host.
+services:
+  moodle:
+    restart: always
+    ports: !reset []
+    environment:
+      MOODLE_WWWROOT: https://${MOODLE_DOMAIN:?Set MOODLE_DOMAIN in .env}
+      MOODLE_SSLPROXY: "true"
+      MOODLE_DEBUG: "false"
+
+  cron:
+    restart: always
+    environment:
+      MOODLE_WWWROOT: https://${MOODLE_DOMAIN:?Set MOODLE_DOMAIN in .env}
+      MOODLE_SSLPROXY: "true"
+      MOODLE_DEBUG: "false"
+
+  db:
+    restart: always
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    depends_on:
+      - moodle
+    environment:
+      MOODLE_DOMAIN: ${MOODLE_DOMAIN:?Set MOODLE_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

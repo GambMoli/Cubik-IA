@@ -1,0 +1,6 @@
+# HTTPS reverse proxy for Moodle (docker-compose.prod.yml).
+# Caddy obtains and renews the Let's Encrypt certificate for MOODLE_DOMAIN.
+{$MOODLE_DOMAIN} {
+	encode gzip
+	reverse_proxy moodle:80
+}

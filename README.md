@@ -1,9 +1,9 @@
 # Cubik IA — Monorepo
 
-> ⚠️ **Solo para desarrollo local.** Esta configuración no está preparada para
-> producción: usa HTTP sin TLS, un servidor web de desarrollo, credenciales
-> definidas en un archivo `.env` local y opciones de depuración. No la expongas
-> a Internet.
+> ⚠️ **`docker-compose.yml` es solo para desarrollo local** (HTTP sin TLS,
+> opciones de depuración). Para publicar Moodle en un servidor, usa
+> `docker-compose.prod.yml` siguiendo la guía
+> [Despliegue en Oracle Cloud](docs/deploy-oracle.md).
 
 Monorepo con tres componentes independientes. En esta primera fase solo
 **Moodle** es funcional; `backend/` y `frontend/` están reservados para el
@@ -17,11 +17,19 @@ Cubik-IA/
 ├── backend/                   # Vacío (reservado)
 ├── frontend/                  # Vacío (reservado)
 ├── docker/
+│   ├── caddy/Caddyfile        # Proxy HTTPS (solo en modo servidor)
+│   ├── railway/entrypoint.d/  # Puerto $PORT, /healthz y cron (solo en la imagen)
 │   └── moodle/
 │       ├── config.php         # config.php de Moodle; lee todo de variables de entorno
 │       └── entrypoint.d/
 │           └── 10-moodle-init.sh  # Permisos de moodledata + instalación automática
 ├── docker-compose.yml         # Infraestructura local (db, moodle, cron)
+├── docker-compose.prod.yml    # Ajustes para servidor: Caddy + HTTPS
+├── Dockerfile                 # Imagen de Moodle para Railway (no se usa en local)
+├── railway.json               # Configuración de despliegue en Railway
+├── docs/deploy-oracle.md      # Guía de despliegue en Oracle Cloud (Always Free)
+├── docs/deploy-railway.md     # Guía de despliegue en Railway
+├── scripts/oci/provision-moodle.sh  # Crea la VM gratuita y despliega Moodle (Cloud Shell)
 ├── .env.example               # Variables de entorno de ejemplo (sin secretos)
 ├── .gitattributes
 ├── .gitignore
@@ -220,9 +228,29 @@ estructura de directorios y las versiones de PHP admitidas.
 | Scripts con `\r` / `bad interpreter` (Windows) | `.gitattributes` fuerza LF en `docker/**`. Si clonaste el repositorio antes de que existiera ese archivo, vuelve a clonarlo. |
 | Rendimiento lento en Windows/macOS | Clona el repo dentro del sistema de archivos de WSL2 (Windows) o activa VirtioFS en Docker Desktop (macOS). |
 
+## Despliegue en un servidor
+
+`docker-compose.prod.yml` se combina con el archivo base y:
+
+- añade **Caddy**, que publica los puertos 80 y 443 y obtiene el certificado HTTPS automáticamente;
+- deja de publicar el puerto de Moodle (solo se accede a través de Caddy);
+- fija `MOODLE_WWWROOT=https://MOODLE_DOMAIN`, activa `sslproxy` y desactiva la depuración.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+Paso a paso para una VM gratuita: **[docs/deploy-oracle.md](docs/deploy-oracle.md)**.
+
+### Railway
+
+`Dockerfile` y `railway.json` permiten desplegar en Railway con su PostgreSQL y un
+volumen para `moodledata`; el cron se ejecuta dentro del mismo contenedor. Guía:
+**[docs/deploy-railway.md](docs/deploy-railway.md)**.
+
 ## Seguridad y alcance
 
-- Solo para desarrollo local: Moodle escucha en `127.0.0.1`, sin HTTPS.
+- En modo local, Moodle escucha solo en `127.0.0.1` y sin HTTPS. En modo servidor, solo se exponen los puertos 80 y 443 de Caddy.
 - No hay secretos versionados: `.env.example` deja vacías las contraseñas.
 - La instalación de plugins desde la web está desactivada
   (`disableupdateautodeploy`): el código se gestiona con Git.
