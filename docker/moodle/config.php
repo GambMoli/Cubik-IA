@@ -44,6 +44,11 @@ $CFG->wwwroot  = rtrim(cubik_env('MOODLE_WWWROOT'), '/');
 $CFG->dataroot = '/var/www/moodledata';
 $CFG->admin    = 'admin';
 
+// Set when HTTPS is terminated by a reverse proxy (docker-compose.prod.yml).
+if (cubik_env('MOODLE_SSLPROXY', 'false') === 'true') {
+    $CFG->sslproxy = true;
+}
+
 $CFG->directorypermissions = 02777;
 
 // The source tree is managed with Git, not from the web UI.

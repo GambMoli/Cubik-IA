@@ -51,8 +51,9 @@ services:
       - ./docker/moodle/entrypoint.d:/docker-entrypoint.d:ro
       - moodle_data:/var/www/moodledata
     healthcheck:
-      # Request the real wwwroot (Moodle redirects any other host) via the local Apache.
-      test: ["CMD-SHELL", "curl -fsS -o /dev/null --connect-to ::127.0.0.1:80 \"$${MOODLE_WWWROOT}/login/index.php\""]
+      # Ask the local Apache for the login page using the wwwroot host, since
+      # Moodle redirects any other host (works for http and behind the HTTPS proxy).
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null -H \"Host: $$(echo \"$${MOODLE_WWWROOT}\" | sed -E 's#^https?://([^/]+).*#\\1#')\" http://127.0.0.1/login/index.php"]
       interval: 15s
       timeout: 10s
       retries: 5
