@@ -25,6 +25,40 @@ Fuente: [Always Free Resources](https://docs.oracle.com/en-us/iaas/Content/FreeT
 
 ---
 
+## Opción rápida: script automático
+
+`scripts/oci/provision-moodle.sh` hace todo lo de los pasos 2 a 7 con un solo
+comando: crea la red, abre los puertos, crea la VM gratuita, instala Docker y
+arranca Moodle con HTTPS.
+
+1. Entra en la consola de Oracle y abre **Cloud Shell**: el icono `>_` de
+   arriba a la derecha (o **Developer tools → Cloud Shell**). Es una terminal
+   que ya tiene acceso a tu cuenta, así que no hace falta crear claves de API.
+2. Pega este comando y pulsa Enter:
+
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/GambMoli/Cubik-IA/main/scripts/oci/provision-moodle.sh)
+   ```
+
+3. Escribe el correo del administrador cuando te lo pida y espera entre 10 y
+   15 minutos.
+
+Al terminar, el script muestra la **URL**, el **usuario** y la **contraseña**
+del administrador, y el comando SSH para entrar en la VM. Esos datos quedan
+también guardados en `~/cubik-moodle/credentials.txt`, dentro de Cloud Shell.
+La clave SSH queda en `~/.ssh/cubik-moodle`: descárgala desde el menú de Cloud
+Shell (**⚙ → Download**) si quieres conectarte desde tu PC.
+
+Puedes volver a ejecutarlo sin problema: reutiliza lo que ya existe (la red,
+la VM y el `.env` del servidor).
+
+Variables opcionales, que se ponen delante de `bash`: `OCPUS=2`,
+`MEMORY_GB=12`, `BOOT_GB=50`, `BRANCH=main`, `ADMIN_EMAIL=...`.
+
+Si prefieres hacerlo a mano desde la consola, sigue los pasos de abajo.
+
+---
+
 ## 1. Crear la cuenta
 
 1. Regístrate en <https://www.oracle.com/cloud/free/>.

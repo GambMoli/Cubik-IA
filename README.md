@@ -25,6 +25,7 @@ Cubik-IA/
 ├── docker-compose.yml         # Infraestructura local (db, moodle, cron)
 ├── docker-compose.prod.yml    # Ajustes para servidor: Caddy + HTTPS
 ├── docs/deploy-oracle.md      # Guía de despliegue en Oracle Cloud (Always Free)
+├── scripts/oci/provision-moodle.sh  # Crea la VM gratuita y despliega Moodle (Cloud Shell)
 ├── .env.example               # Variables de entorno de ejemplo (sin secretos)
 ├── .gitattributes
 ├── .gitignore
