@@ -1,0 +1,80 @@
+# Local development infrastructure. Only Moodle runs for now: backend/ and
+# frontend/ have no services until those applications exist.
+name: ${COMPOSE_PROJECT_NAME:-cubik-ia}
+
+x-moodle-env: &moodle-env
+  MOODLE_DB_HOST: db
+  MOODLE_DB_PORT: "5432"
+  MOODLE_DB_NAME: ${MOODLE_DB_NAME:-moodle}
+  MOODLE_DB_USER: ${MOODLE_DB_USER:-moodle}
+  MOODLE_DB_PASSWORD: ${MOODLE_DB_PASSWORD:?Set MOODLE_DB_PASSWORD in .env}
+  MOODLE_DB_PREFIX: ${MOODLE_DB_PREFIX:-mdl_}
+  MOODLE_WWWROOT: ${MOODLE_WWWROOT:-http://localhost:8085}
+  MOODLE_DEBUG: ${MOODLE_DEBUG:-false}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MOODLE_DB_NAME:-moodle}
+      POSTGRES_USER: ${MOODLE_DB_USER:-moodle}
+      POSTGRES_PASSWORD: ${MOODLE_DB_PASSWORD:?Set MOODLE_DB_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  moodle:
+    image: moodlehq/moodle-php-apache:8.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *moodle-env
+      MOODLE_ADMIN_USER: ${MOODLE_ADMIN_USER:-admin}
+      MOODLE_ADMIN_PASSWORD: ${MOODLE_ADMIN_PASSWORD:?Set MOODLE_ADMIN_PASSWORD in .env}
+      MOODLE_ADMIN_EMAIL: ${MOODLE_ADMIN_EMAIL:?Set MOODLE_ADMIN_EMAIL in .env}
+      MOODLE_SITE_FULLNAME: ${MOODLE_SITE_FULLNAME:-Cubik IA}
+      MOODLE_SITE_SHORTNAME: ${MOODLE_SITE_SHORTNAME:-cubik}
+      MOODLE_LANG: ${MOODLE_LANG:-en}
+    ports:
+      - "${MOODLE_HTTP_BIND:-127.0.0.1}:${MOODLE_HTTP_PORT:-8085}:80"
+    volumes:
+      - ./moodle:/var/www/html
+      - ./docker/moodle/config.php:/var/www/html/config.php:ro
+      - ./docker/moodle/entrypoint.d:/docker-entrypoint.d:ro
+      - moodle_data:/var/www/moodledata
+    healthcheck:
+      # Request the real wwwroot (Moodle redirects any other host) via the local Apache.
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null --connect-to ::127.0.0.1:80 \"$${MOODLE_WWWROOT}/login/index.php\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      # The first start installs the database, which takes a few minutes.
+      start_period: 10m
+
+  # Moodle needs its scheduled tasks to run every minute.
+  cron:
+    image: moodlehq/moodle-php-apache:8.3
+    restart: unless-stopped
+    depends_on:
+      moodle:
+        condition: service_healthy
+    user: www-data
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["while :; do php /var/www/html/admin/cli/cron.php; sleep 60; done"]
+    environment: *moodle-env
+    volumes:
+      - ./moodle:/var/www/html
+      - ./docker/moodle/config.php:/var/www/html/config.php:ro
+      - moodle_data:/var/www/moodledata
+
+volumes:
+  db_data:
+  moodle_data:

@@ -1,0 +1,14 @@
+# Local environment (contains secrets)
+.env
+.env.*
+!.env.example
+
+# Mount point Docker creates for docker/moodle/config.php
+/moodle/config.php
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
