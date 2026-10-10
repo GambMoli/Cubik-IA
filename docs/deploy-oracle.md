@@ -55,6 +55,16 @@ la VM y el `.env` del servidor).
 Variables opcionales, que se ponen delante de `bash`: `OCPUS=2`,
 `MEMORY_GB=12`, `BOOT_GB=50`, `BRANCH=main`, `ADMIN_EMAIL=...`.
 
+**Si aparece "Out of host capacity"** (no quedan máquinas gratuitas en ese
+momento, algo muy habitual), puedes:
+
+- dejar que reintente solo, por ejemplo cada 5 minutos durante unos 50:
+  `RETRY_MINUTES=5 MAX_ROUNDS=10 bash <(curl ...)`. Cloud Shell se cierra
+  tras 60 minutos de inactividad, así que no pongas más tiempo que eso;
+- pedir una máquina más pequeña, que suele estar más disponible:
+  `OCPUS=1 MEMORY_GB=6 bash <(curl ...)`;
+- volver a intentarlo más tarde, por la noche o de madrugada.
+
 Si prefieres hacerlo a mano desde la consola, sigue los pasos de abajo.
 
 ---

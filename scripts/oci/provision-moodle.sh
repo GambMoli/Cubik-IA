@@ -23,6 +23,8 @@ BRANCH="${BRANCH:-main}"
 OCPUS="${OCPUS:-2}"
 MEMORY_GB="${MEMORY_GB:-12}"
 BOOT_GB="${BOOT_GB:-50}"
+RETRY_MINUTES="${RETRY_MINUTES:-0}"
+MAX_ROUNDS="${MAX_ROUNDS:-1}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/${PREFIX}-moodle}"
 STATE_DIR="${STATE_DIR:-$HOME/${PREFIX}-moodle}"
 
@@ -169,26 +171,33 @@ EOF
     --query 'data[].name' --raw-output | tr -d '[]", ' | grep -v '^$')
   [ "${#ADS[@]}" -gt 0 ] || die "Could not list availability domains."
 
-  for AD in "${ADS[@]}"; do
-    info "Creating ${INSTANCE_NAME} in ${AD} (${OCPUS} OCPU / ${MEMORY_GB} GB)..."
-    if OUT="$("${OCI[@]}" compute instance launch --compartment-id "${COMPARTMENT_ID}" \
-        --availability-domain "${AD}" --display-name "${INSTANCE_NAME}" \
-        --shape "${SHAPE}" --shape-config "{\"ocpus\":${OCPUS},\"memoryInGBs\":${MEMORY_GB}}" \
-        --image-id "${IMAGE_ID}" --boot-volume-size-in-gbs "${BOOT_GB}" \
-        --subnet-id "${SUBNET_ID}" --assign-public-ip true \
-        --ssh-authorized-keys-file "${SSH_KEY}.pub" --user-data-file "${CLOUD_INIT}" \
-        --wait-for-state RUNNING --max-wait-seconds 900 \
-        --query 'data.id' --raw-output 2>&1)"; then
-      INSTANCE_ID="$(printf '%s\n' "${OUT}" | grep -E '^ocid1\.instance\.' | tail -1)"
-      break
+  # Free Ampere capacity comes and goes, so retry every RETRY_MINUTES (0 = no retry).
+  for ROUND in $(seq 1 "${MAX_ROUNDS}"); do
+    for AD in "${ADS[@]}"; do
+      info "Creating ${INSTANCE_NAME} in ${AD} (${OCPUS} OCPU / ${MEMORY_GB} GB)..."
+      if OUT="$("${OCI[@]}" compute instance launch --compartment-id "${COMPARTMENT_ID}" \
+          --availability-domain "${AD}" --display-name "${INSTANCE_NAME}" \
+          --shape "${SHAPE}" --shape-config "{\"ocpus\":${OCPUS},\"memoryInGBs\":${MEMORY_GB}}" \
+          --image-id "${IMAGE_ID}" --boot-volume-size-in-gbs "${BOOT_GB}" \
+          --subnet-id "${SUBNET_ID}" --assign-public-ip true \
+          --ssh-authorized-keys-file "${SSH_KEY}.pub" --user-data-file "${CLOUD_INIT}" \
+          --wait-for-state RUNNING --max-wait-seconds 900 \
+          --query 'data.id' --raw-output 2>&1)"; then
+        INSTANCE_ID="$(printf '%s\n' "${OUT}" | grep -E '^ocid1\.instance\.' | tail -1)"
+        break 2
+      fi
+      if printf '%s' "${OUT}" | grep -qi 'capacity'; then
+        info "Oracle: $(printf '%s' "${OUT}" | grep -o '"message": "[^"]*"' | head -1)"
+        continue
+      fi
+      die "Could not create the instance:"$'\n'"${OUT}"
+    done
+    if [ "${RETRY_MINUTES}" -gt 0 ] && [ "${ROUND}" -lt "${MAX_ROUNDS}" ]; then
+      info "No free capacity (attempt ${ROUND}/${MAX_ROUNDS}); retrying in ${RETRY_MINUTES} min. Ctrl+C to stop."
+      sleep "$((RETRY_MINUTES * 60))"
     fi
-    if printf '%s' "${OUT}" | grep -qi 'capacity'; then
-      info "No free capacity in ${AD}; trying the next availability domain."
-      continue
-    fi
-    die "Could not create the instance:"$'\n'"${OUT}"
   done
-  [ -n "${INSTANCE_ID}" ] || die "No Always Free capacity right now in ${HOME_REGION}. Try again in a few hours."
+  [ -n "${INSTANCE_ID}" ] || die "No Always Free capacity right now in ${HOME_REGION}. Run again later, try OCPUS=1 MEMORY_GB=6, or set RETRY_MINUTES=5."
 else
   info "Reusing instance ${INSTANCE_NAME}"
 fi
