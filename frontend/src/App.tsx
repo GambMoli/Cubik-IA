@@ -1,5 +1,17 @@
+import { useState } from 'react'
+
+import { ChatPage } from './modules/chat'
+import { sampleMessages } from './modules/chat/fixtures'
+import type { Message } from './modules/chat/types'
+
 function App() {
-  return <h1>Hello, World!</h1>
+  const [messages, setMessages] = useState<Message[]>(sampleMessages)
+
+  function handleSubmit(text: string) {
+    setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', content: text }])
+  }
+
+  return <ChatPage messages={messages} onSubmit={handleSubmit} />
 }
 
 export default App

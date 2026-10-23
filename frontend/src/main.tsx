@@ -1,10 +1,14 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import 'katex/dist/katex.min.css'
 import './index.css'
 import App from './App.tsx'
+import { AppThemeProvider } from './components/AppThemeProvider/AppThemeProvider.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AppThemeProvider>
+      <App />
+    </AppThemeProvider>
   </StrictMode>,
 )
