@@ -44,10 +44,10 @@ The send button SHALL be disabled, and Enter SHALL do nothing, while the input c
 - **THEN** the send button is disabled and pressing Enter does not call the submit callback
 
 ### Requirement: Composer resets after sending
-After a message is submitted, the composer SHALL clear the input and close the formula panel.
+After a message is submitted, the composer SHALL clear the input and close the calculator panel.
 
 #### Scenario: Submit with the panel open
-- **WHEN** a message is submitted while the formula panel is open
+- **WHEN** a message is submitted while the calculator panel is open
 - **THEN** the input is empty and the panel is closed
 
 ### Requirement: Disabled composer
@@ -57,45 +57,31 @@ While the composer is disabled, the input and the send button SHALL not accept i
 - **WHEN** the composer is told it is disabled
 - **THEN** the input cannot be edited and the send button is disabled
 
-### Requirement: Formula panel
-The composer SHALL provide an "Insertar fórmula" button that opens and closes a panel of six snippet cards: Integral, Por partes, Derivada, Límite, Ecuación and Raíz. Each card shows its label and a typeset preview.
+### Requirement: Calculator panel
+The composer SHALL provide an "Abrir Calculadora" button that opens and closes the calculator keyboard panel, described in the `calculator-keyboard` capability, below the message input and the math preview.
 
 #### Scenario: Opening the panel
-- **WHEN** the user clicks "Insertar fórmula"
-- **THEN** the panel shows the six cards and the button looks active
+- **WHEN** the user clicks "Abrir Calculadora"
+- **THEN** the calculator keyboard is shown on its "123" tab and the button looks active
+
+#### Scenario: Panel position
+- **WHEN** the calculator is open and the math preview is visible
+- **THEN** from top to bottom the composer shows the "Abrir Calculadora" button, the math preview, the message input with its send button, and the calculator keyboard last
 
 #### Scenario: Closing the panel
-- **WHEN** the user clicks "Insertar fórmula" while the panel is open
+- **WHEN** the user clicks "Abrir Calculadora" while the panel is open
 - **THEN** the panel closes and the button returns to its normal look
 
 #### Scenario: Panel taller than the screen
 - **WHEN** the panel content is taller than 45% of the viewport height on a narrow screen (50% on a wide screen)
 - **THEN** the panel scrolls internally
 
-### Requirement: Formula panel usage hint
-The open formula panel SHALL show a hint with examples of accepted plain-text input.
-
-#### Scenario: Hint visible
-- **WHEN** the panel is open
-- **THEN** a hint below the cards mentions examples such as `∫ x^2 dx` and `d/dx (x^3)`
-
-### Requirement: Inserting a snippet
-Clicking a snippet card SHALL insert its plain-text expression into the input at the cursor, replacing any selection, then focus the input with the cursor after the inserted text.
-
-#### Scenario: Insert into an empty input
-- **WHEN** the input is empty and the user clicks the "Integral" card
-- **THEN** the input contains "∫ x^2 dx" and is focused
-
-#### Scenario: Insert after existing text
-- **WHEN** the input contains "Resuelve" with the cursor at the end and the user clicks a card
-- **THEN** a single space is added before the inserted expression
-
-#### Scenario: Insert over a selection
-- **WHEN** part of the text is selected and the user clicks a card
-- **THEN** the selected text is replaced by the expression
+#### Scenario: Old button label
+- **WHEN** the composer is shown
+- **THEN** no button labeled "Insertar fórmula" exists
 
 ### Requirement: Live math preview
-While the user types, the composer SHALL show a block titled "Vista previa matemática" with the math in the input rendered as formulas, and SHALL hide it when the input has no math.
+While the user types, the composer SHALL show a block titled "Vista previa matemática" with the math in the input rendered as formulas, including the notation the calculator keys write, and SHALL hide it when the input has no math.
 
 #### Scenario: Single expression
 - **WHEN** the input contains "lim x->0 sin(x)/x"
@@ -112,3 +98,31 @@ While the user types, the composer SHALL show a block titled "Vista previa matem
 #### Scenario: No math
 - **WHEN** the input contains only plain words
 - **THEN** no preview block is shown
+
+#### Scenario: Function names
+- **WHEN** the input contains "tg(x) + arcsen(x) + ln(x) + log10(x)"
+- **THEN** the preview shows tangent, inverse sine, natural logarithm and base-10 logarithm as typeset function names
+
+#### Scenario: Grouped exponent and subscript
+- **WHEN** the input contains "e^(x+1) + a_(n)"
+- **THEN** the preview shows "x+1" together as the exponent and "n" as the subscript
+
+#### Scenario: Roots and absolute value
+- **WHEN** the input contains "sqrt(x) + root(3, x) + abs(x-2)"
+- **THEN** the preview shows a square root, a cube root and the absolute value bars around "x-2"
+
+#### Scenario: Parenthesized fraction
+- **WHEN** the input contains "(x+1)/(x-1)"
+- **THEN** the preview shows a stacked fraction
+
+#### Scenario: Slash after a function is not a fraction
+- **WHEN** the input contains "sin(x)/x"
+- **THEN** the preview keeps the slash inline and shows no stacked fraction
+
+#### Scenario: Greek and logic symbols
+- **WHEN** the input contains "ζ ∧ ψ ∈ A ⊂ B → ∞"
+- **THEN** the preview shows each of those symbols typeset
+
+#### Scenario: Operators from the calculator
+- **WHEN** the input contains "3 × 4 ÷ 2 ≤ 7"
+- **THEN** the preview shows a formula with the multiplication, division and less-or-equal signs

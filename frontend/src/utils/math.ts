@@ -67,11 +67,63 @@ const SYMBOL_TO_LATEX: Array<[string, string]> = [
   ['Ω', '\\Omega '],
   ['ρ', '\\rho '],
   ['τ', '\\tau '],
+  ['ζ', '\\zeta '],
+  ['η', '\\eta '],
+  ['ι', '\\iota '],
+  ['κ', '\\kappa '],
+  ['ξ', '\\xi '],
+  ['ο', 'o'],
+  ['υ', '\\upsilon '],
+  ['χ', '\\chi '],
+  ['ψ', '\\psi '],
+  ['ς', '\\varsigma '],
+  ['ϕ', '\\varphi '],
+  ['Θ', '\\Theta '],
+  ['Λ', '\\Lambda '],
+  ['Ξ', '\\Xi '],
+  ['Π', '\\Pi '],
+  ['Υ', '\\Upsilon '],
+  ['Ψ', '\\Psi '],
+  // Capitals that look the same as a Latin letter.
+  ['Α', 'A'],
+  ['Β', 'B'],
+  ['Ε', 'E'],
+  ['Ζ', 'Z'],
+  ['Η', 'H'],
+  ['Ι', 'I'],
+  ['Κ', 'K'],
+  ['Μ', 'M'],
+  ['Ν', 'N'],
+  ['Ο', 'O'],
+  ['Ρ', 'P'],
+  ['Τ', 'T'],
+  ['Χ', 'X'],
+  ['∧', '\\land '],
+  ['∨', '\\lor '],
+  ['¬', '\\neg '],
+  ['⊗', '\\otimes '],
+  ['∈', '\\in '],
+  ['⊂', '\\subset '],
+  ['⊆', '\\subseteq '],
+  ['∠', '\\angle '],
+  ['⊥', '\\perp '],
+  ['∥', '\\parallel '],
+  ['≟', '\\stackrel{?}{=}'],
+  // An empty base keeps these from clashing with a superscript already on the previous term (x^2°).
+  ['°', '{}^{\\circ}'],
+  ['′', '{}^{\\prime}'],
+  ['″', '{}^{\\prime\\prime}'],
 ]
 
-// Characters and commands that make a line look like math when typing in the composer.
-const COMPOSER_MATH_SIGNAL = /[=^+\-/*()∫√π∂∑∏²³⁴⁵⁶⁷⁸⁹αβγδθλμσφω]|\\(?:int|frac|sqrt|sin|cos|tan|lim)/
-const PREVIEW_CANDIDATE_SIGNAL = /[=^+\-/*()∫√π]|\\(?:int|frac|sqrt|sin|cos|tan|lim)/
+// Characters and commands that make a line look like math when typing in the composer. The range
+// Ͱ-Ͽ is the Greek block, so every letter the calculator can write counts.
+const COMPOSER_MATH_SIGNAL =
+  /[=^+\-/*()_<>∫√∂∑∏²³⁴⁵⁶⁷⁸⁹×÷≤≥≠≈±∞∈⊂⊆∧∨¬⊗⊥∥∠→°Ͱ-Ͽ]|\\(?:int|frac|sqrt|sin|cos|tan|lim)/
+const PREVIEW_CANDIDATE_SIGNAL =
+  /[=^+\-/*()_<>∫√×÷≤≥≠≈±∞∈⊂⊆∧∨¬⊗⊥∥∠→°Ͱ-Ͽ]|\\(?:int|frac|sqrt|sin|cos|tan|lim)/
+
+// A backslash command or a ^{ / _{ group means the braces are LaTeX the user wrote, not a set.
+const LATEX_BRACES = /\\[A-Za-z]+|[\^_]\{/
 const PARAGRAPH_MATH_SIGNAL = /[=^+\-/*()]|(?:\b(?:sin|cos|tan|lim|sqrt|integral)\b)/i
 const MATH_WORDS = /^(sin|sen|cos|tan|ln|log|exp|pi|lim|sqrt|integral|dx|dy|dz|dt)$/i
 
@@ -152,8 +204,131 @@ export function shouldRenderStandaloneMath(text: string): boolean {
   return PARAGRAPH_MATH_SIGNAL.test(trimmed) && wordCount <= 8 && words.length === 0
 }
 
+const CALL_START = /^(sqrt|abs|root|ceil|floor|exp)\(/
+
+// Index of the ")" that closes the "(" at `open`, or -1 when it is never closed.
+function findClosingParenthesis(text: string, open: number): number {
+  let depth = 0
+  for (let index = open; index < text.length; index += 1) {
+    if (text[index] === '(') {
+      depth += 1
+    } else if (text[index] === ')') {
+      depth -= 1
+      if (depth === 0) {
+        return index
+      }
+    }
+  }
+  return -1
+}
+
+// Splits on the commas that are not inside parentheses.
+function splitTopLevel(text: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === '(') {
+      depth += 1
+    } else if (text[index] === ')') {
+      depth -= 1
+    } else if (text[index] === ',' && depth === 0) {
+      parts.push(text.slice(start, index))
+      start = index + 1
+    }
+  }
+  parts.push(text.slice(start))
+  return parts
+}
+
+function renderCall(name: string, inner: string): string {
+  const content = convertGroups(inner)
+
+  switch (name) {
+    case 'sqrt':
+      return `\\sqrt{${content}}`
+    case 'abs':
+      return `\\left|${content}\\right|`
+    case 'exp':
+      return `e^{${content}}`
+    case 'ceil':
+      return `\\left\\lceil ${content}\\right\\rceil `
+    case 'floor':
+      return `\\left\\lfloor ${content}\\right\\rfloor `
+    default: {
+      // root(n, x) is the n-th root of x; anything else falls back to a square root.
+      const [index, radicand, ...rest] = splitTopLevel(inner)
+      return radicand !== undefined && rest.length === 0
+        ? `\\sqrt[${convertGroups(index.trim())}]{${convertGroups(radicand.trim())}}`
+        : `\\sqrt{${content}}`
+    }
+  }
+}
+
+// Rewrites the calls and groups that need matching parentheses: sqrt, abs, root, ceil, floor, exp,
+// grouped exponents and subscripts such as ^(x+1) and _(n), and a parenthesized fraction (a)/(b).
+function convertGroups(text: string): string {
+  let output = ''
+  let index = 0
+
+  while (index < text.length) {
+    const char = text[index]
+    const previous = index > 0 ? text[index - 1] : ''
+
+    const call = previous && /[A-Za-z0-9\\]/.test(previous) ? null : text.slice(index).match(CALL_START)
+    if (call) {
+      const open = index + call[1].length
+      const close = findClosingParenthesis(text, open)
+      if (close !== -1) {
+        output += renderCall(call[1], text.slice(open + 1, close))
+        index = close + 1
+        continue
+      }
+    }
+
+    if ((char === '^' || char === '_') && text[index + 1] === '(') {
+      const close = findClosingParenthesis(text, index + 1)
+      if (close !== -1) {
+        output += `${char}{${convertGroups(text.slice(index + 2, close))}}`
+        index = close + 1
+        continue
+      }
+    }
+
+    // (a)/(b) is a fraction, unless the first group is an argument (sin(x)/(2)) or a factor (2(x)/(y)).
+    if (char === '(' && !/[A-Za-z0-9]/.test(previous)) {
+      const closeNumerator = findClosingParenthesis(text, index)
+      if (closeNumerator !== -1 && text[closeNumerator + 1] === '/' && text[closeNumerator + 2] === '(') {
+        const closeDenominator = findClosingParenthesis(text, closeNumerator + 2)
+        if (closeDenominator !== -1) {
+          const numerator = text.slice(index + 1, closeNumerator)
+          const denominator = text.slice(closeNumerator + 3, closeDenominator)
+          output += `\\frac{${convertGroups(numerator)}}{${convertGroups(denominator)}}`
+          index = closeDenominator + 1
+          continue
+        }
+      }
+    }
+
+    output += char
+    index += 1
+  }
+
+  return output
+}
+
+// Characters the calculator can write that mean something else to LaTeX: % starts a comment,
+// $ # & are reserved, a lone backslash is a space, and unbalanced braces are a parse error.
+function escapeLatexSpecials(text: string, keepBraces: boolean): string {
+  const escaped = text
+    .replace(/(?<!\\)\\(?![A-Za-z{}()[\]%$#&,;:!\\])/g, '\\backslash ')
+    .replace(/(?<!\\)([%$#&])/g, '\\$1')
+
+  return keepBraces ? escaped : escaped.replace(/(?<!\\)([{}])/g, '\\$1')
+}
+
 function normalizePlainExpression(expression: string): string {
-  let value = expression
+  let value = escapeLatexSpecials(expression, LATEX_BRACES.test(expression))
 
   for (const [symbol, digit] of Object.entries(SUPERSCRIPT_DIGITS)) {
     value = value.replaceAll(symbol, `^${digit}`)
@@ -163,15 +338,22 @@ function normalizePlainExpression(expression: string): string {
   }
 
   // A backslash before a word means it is already a LaTeX command, so the word rules skip it.
-  return value
-    .replace(/√\(([^)]+)\)/g, '\\sqrt{$1}')
-    .replace(/√/g, '\\sqrt ')
-    .replace(/\*\*/g, '^')
+  return convertGroups(
+    value
+      .replace(/√\(([^)]+)\)/g, '\\sqrt{$1}')
+      .replace(/√/g, '\\sqrt ')
+      .replace(/\*\*/g, '^'),
+  )
     .replace(/(?<!\\)\bpi\b/g, '\\pi')
     .replace(/(?<!\\)\bsen\b/g, '\\sin')
+    .replace(/(?<!\\)\b(?:arcsen|arcsin)\b/g, '\\arcsin')
+    .replace(/(?<!\\)\barccos\b/g, '\\arccos')
+    .replace(/(?<!\\)\b(?:arctg|arctan)\b/g, '\\arctan')
+    .replace(/(?<!\\)\btg\b/g, '\\tan')
+    .replace(/(?<!\\)\blog10\b/g, '\\log_{10}')
+    // log_(b)(x): the base was already grouped as log_{b}, so only the name is left to convert.
+    .replace(/(?<![\\A-Za-z0-9_])log(?=_\{)/g, '\\log')
     .replace(/(?<!\\)\b(sin|cos|tan|ln|log)\b/g, '\\$1')
-    .replace(/(?<!\\)\bsqrt\(([^()]+)\)/g, '\\sqrt{$1}')
-    .replace(/(?<!\\)\bexp\(([^()]+)\)/g, 'e^{$1}')
     .replace(/->/g, '\\to ')
     .replace(/\*/g, ' ')
 }

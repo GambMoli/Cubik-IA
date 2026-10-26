@@ -1,6 +1,6 @@
 # Cubik IA frontend
 
-React 19 + TypeScript + Vite. Package manager: pnpm.
+React 19 + TypeScript + Vite. Package manager: pnpm. Node.js 24.22.1 or newer in the 24.x line (see `.nvmrc`): earlier versions are affected by the October 2026 Node.js security release (CVE-2026-111497 and others).
 
 ## Scripts
 
@@ -22,8 +22,11 @@ Tests live next to the code as `*.test.ts(x)`; shared setup is in `src/setupTest
 | Path | Contents |
 |---|---|
 | `src/modules/chat/` | Chat page UI: `ChatPage`, `ChatMessage`, `ResolutionCard`, `Composer`, `EmptyConversationState` |
+| `src/modules/chat/components/CalculatorKeyboard/` | The "Abrir Calculadora" keyboard (GeoGebra-style tabs `123`, `f(x)`, `ABC`, `#&¬`): `layouts.ts` has every key as data, `keyboardState.ts` the shift/accent/Greek state and the edit commands |
 | `src/components/` | Shared UI: `AppThemeProvider` (light/dark from the system), `StatusBanner`, `MathContent`/`MathFormula` (KaTeX) |
-| `src/utils/` | `theme.ts` (palettes and MUI theme), `math.ts` (plain-text math to LaTeX), `text.ts` |
+| `src/utils/` | `theme.ts` (palettes and MUI theme), `math.ts` (plain-text math to LaTeX), `text.ts` (insert, delete and move the cursor in a text) |
+
+The calculator keys write plain text into the message input (`sqrt()`, `^2`, `∫  dx`, `arcsen()`); nothing is calculated in the browser, the assistant solves the exercise. `utils/math.ts` turns that text into LaTeX for the live preview.
 | `src/icon/` | Avatar icons |
 
 The chat page is presentational: it gets `messages`, `isLoading`, `error`, `isSubmitting` and `onSubmit` as props and makes no API calls.
