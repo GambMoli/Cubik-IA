@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the message composer at the bottom of the chat: typing and sending a message, inserting math snippets, and previewing the math being typed.
+Defines the message composer at the bottom of the chat: typing and sending a message, opening the calculator keyboard, and previewing the math being typed.
 
 ## Requirements
 
