@@ -1,0 +1,65 @@
+schema: spec-driven
+
+# Stack, architecture, component patterns, testing, security and npm/pnpm commands live in
+# frontend/CLAUDE.md (and root CLAUDE.md). This file holds only what is specific to OpenSpec
+# artifacts and operations for the React + Vite + TypeScript frontend.
+context: |
+  CLAUDE.md is the frontend's operating guide and the source of truth for stack (React, Vite,
+  TypeScript strict mode, Tailwind/CSS, KaTeX/MathJax, graphing libraries), architecture
+  (feature-sliced / clean frontend separation: ui -> hooks -> services/api -> types),
+  testing (Vitest + React Testing Library + Playwright/MSW), and package scripts.
+  Every artifact must conform to it; a change that needs to deviate must say so explicitly in
+  its proposal and design.
+  Academic & UX source of truth: documents under ../docs/ (Anteproyecto, IEEE 29148 SRS,
+  student survey Section F [F1-F7] & Section B [B2-B3], and Figma mockups). Cite them by path
+  and section.
+  All work goes through the OpenSpec flow (explore -> propose -> apply -> archive). No feature
+  code is written outside an OpenSpec change with approved tasks.
+  Pedagogical & UX constraints:
+  - The UI is embedded inside Aula Extendida (Moodle) via LTI 1.3 iframe (no standalone mobile app).
+  - Visual coherence with Aula Extendida's institutional look & feel is mandatory (RNF-01).
+  - Mathematical notation (integrals, limits, matrices, fractions) must render cleanly in LaTeX (RNF-02).
+
+rules:
+  proposal:
+    - Reference the requirement ID(s) (RF/RNF) or UX finding(s) in ../docs/ that motivate the change (path + section)
+    - State the user-facing or pedagogical outcome (e.g., clearer prompt input, step-by-step scaffolding UI, LaTeX readability, teacher analytics view)
+    - State explicitly what is in scope and out of scope (e.g., UI state & API integration in scope; backend LLM logic or Moodle PHP plugins out of scope)
+    - Identify any role-based UI visibility impact (Estudiante vs. Docente) or exam-mode lockdown behavior
+    - State whether the change modifies shared API contracts/DTOs with backend/
+    - Keep it under 400 words
+  specs:
+    - Every requirement must trace to a documented requirement in ../docs/ (IEEE 29148) or survey item (e.g., F1-F7, B2-B3, D6)
+    - Write scenarios in GIVEN/WHEN/THEN covering user interactions, states, and edge cases; each scenario must be directly translatable into a Vitest / React Testing Library test
+    - Cover loading, streaming, empty, and error/degraded states (LLM streaming response, invalid math/LaTeX syntax fallback, API 401 expired LTI session, 403 exam-mode active, 429 rate limit, 503 backend unavailable)
+    - Specify role-based rendering rules (Estudiante chat/history/prompt templates vs. Docente dashboard/restrictions)
+    - Specify accessibility (WCAG AA contrast, keyboard navigation) and responsive behavior inside a Moodle iframe viewport
+  design:
+    - Map every new or modified module to its frontend layer (pages/views, features/components, hooks/state, api-client/adapters, types/schemas) and ensure UI components never call fetch/axios directly
+    - Define TypeScript interfaces/Zod schemas for all backend API requests, SSE/WebSocket streaming chunks, and error payloads
+    - Specify math rendering and visualization details (e.g., KaTeX/MathJax sanitization, interactive function plotting for B2/B3)
+    - Include a Mermaid component tree or state-flow diagram for complex interactive flows (e.g., step-by-step tutor chat, prompt builder, LTI session bootstrap)
+    - Include a Mermaid sequence diagram when introducing new frontend <-> backend API interactions (covering loading and error states)
+    - List frontend security risks (XSS via rendered LLM Markdown/LaTeX, CSRF/token storage inside cross-origin LTI iframe, open redirects) and the control for each (e.g., DOMPurify, memory/sessionStorage token handling)
+    - State the test strategy - which component behaviors, custom hooks, and mocked API states (MSW) are covered
+    - Record UI/UX or library decisions with the alternatives discarded and why
+  tasks:
+    - TDD - for every component behavior or hook, the failing test task (Vitest/RTL) comes before the implementation task
+    - Order work inside out - types/Zod schemas, API client/adapters, custom hooks/state, UI components, view integration
+    - Include tasks to update frontend/.env.example, Dockerfile, or root docker-compose.yml when environment variables (e.g., VITE_API_URL) or build args change
+    - Keep each task small enough to finish and verify in under 30 minutes
+    - Final task is verification - lint (eslint/biome), typecheck (tsc --noEmit), unit/component tests (vitest run), and production build check (vite build)
+
+operations:
+  apply:
+    guidance:
+      - Read and follow frontend/CLAUDE.md before starting; it is the frontend operating guide
+      - Work test-first - write the failing component/hook test, run it to confirm failure, implement the minimum UI/logic to pass, then refactor
+      - Use mocked API responses (MSW/fixtures) aligned with backend contracts; never hardcode production URLs or secrets
+      - Implement only what the change's tasks describe; propose a change update for new scope
+      - Report test, typecheck, and build results faithfully, including failures
+  archive:
+    guidance:
+      - Confirm all tasks are done and lint + typecheck + tests + build pass before archiving
+      - Update frontend/CLAUDE.md if the change introduced new UI conventions, libraries, or scripts
+      - Summarize the archive outcome, traceability to IEEE 29148 / survey items (F1-F7), and any follow-ups or known limitations
