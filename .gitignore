@@ -6,6 +6,10 @@
 # Mount point Docker creates for docker/moodle/config.php
 /moodle/config.php
 
+# Frontend dependencies and build output
+/frontend/node_modules/
+/frontend/dist/
+
 # OS and editor files
 .DS_Store
 Thumbs.db
