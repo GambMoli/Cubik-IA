@@ -22,18 +22,39 @@ context: |
     contract consumed by frontend/.
   - Mathematical correctness is decided deterministically (SymPy) whenever possible; the LLM
     explains and scaffolds, it does not decide correctness.
+  Requirement constraints the backend enforces (IDs from the SRS; quality targets in the root
+  openspec/config.yaml):
+  - Solution release (RF-03): a complete solution is returned only when a prior attempt by the
+    same student on that exercise is recorded and the request carries an explicit confirmation;
+    0% automatic releases.
+  - Mock-exam grading (RF-07, RNF-06): deterministic formula, never the LLM; each grade stores
+    the algorithm version so a recalculation is reproducible.
+  - OCR (RF-13, RF-14): PNG/JPG up to 10 MB, validated server-side; the multimodal model comes
+    from settings; digitized text is sent to evaluation only after explicit student
+    confirmation (0% automatic submissions).
+  - Exercises (RF-04, RF-05): algebra-foundation subtopics (factorización, simplificación,
+    despeje) are in scope; RF-04 sessions have >= 5 exercises; RF-05 packages have exactly 3
+    levels (básico, intermedio, avanzado), >= 3 exercises per level, ordered by difficulty.
+  - Every student interaction of RF-01..RF-07 is recorded in the student's history (RF-11),
+    with the complexity level for RF-01.
+  - Authorization: a student reads only their own history (RF-11, 0% cross-access); a docente
+    reads per-student data only for students of a course where their LTI role is a teaching
+    role (RF-08, RF-10); invalid date ranges (start > end) are rejected (RF-08).
+  - Sessions issued after the LTI launch are JWTs expiring in <= 1 h (RNF-03).
 
 rules:
   proposal:
     - Name the backend module(s) touched (lti, tutor, math, analytics, identity, or a new one with justification)
+    - Name the RF/RNF IDs implemented and, for each endpoint introduced or changed, its RNF-02 category and P95 target
     - State whether the OpenAPI contract changes and whether the change is backward compatible
     - State whether the change touches the database schema and which expand/migrate/contract phase it is
     - State whether the change adds or changes an LLM model, provider, prompt version or other external dependency, and its cost/quota impact
   specs:
     - Each scenario must be directly translatable into a pytest test
-    - Cover failure and degraded paths - invalid LaTeX/math syntax -> 422, out-of-syllabus query, CAS cannot verify a step, LLM timeout or provider down -> fallback model or 503, invalid LTI id_token signature or nonce replay -> 401, insufficient role or exam-mode -> 403, rate limit -> 429
+    - Cover failure and degraded paths - invalid LaTeX/math syntax -> 422, out-of-syllabus query (RF-04 algebra foundations are not off-syllabus), CAS cannot verify a step, LLM timeout or provider down -> fallback model or 503, invalid LTI id_token signature or nonce replay -> 401, expired session JWT -> 401, insufficient role or another user's resource -> 403/404, invalid date range -> 422, upload not PNG/JPG or over 10 MB -> 413/415, rate limit -> 429
     - Specify the classification of each processing step (deterministic/CAS validation, LLM-assisted scaffolding, LTI/LMS sync, docente-controlled rule)
-    - Specify auth and role behavior per endpoint (Estudiante / Docente / Admin mapped from LTI roles claims)
+    - Specify auth and role behavior per endpoint (Estudiante / Docente / Admin mapped from LTI roles claims), including a scenario proving a user cannot read another user's data (RF-11) and a docente cannot read students outside their courses (RF-08)
+    - Carry the SRS metric into the scenario (e.g., RF-03 0% automatic releases, RF-05 3 levels x >= 3 exercises, RF-06 explanation in 100% of wrong answers, RF-07/RNF-06 identical grade on recalculation)
     - Specify request/response shapes (status codes, error body, LaTeX step-by-step structure, SSE event types) for every endpoint introduced or changed
   design:
     - Map every component to its module and layer (api, application, domain, infrastructure) and show dependencies point inward; routers never touch the ORM, LiteLLM or SymPy directly
@@ -46,10 +67,10 @@ rules:
     - Database changes follow expand -> migrate -> contract with one Alembic revision per phase; expand is additive only; contract ships in a later change; never rename or drop in the revision that introduces the replacement; every revision has a working downgrade and uses batch operations so it runs on SQLite and PostgreSQL
     - Include a Mermaid sequence diagram per main flow covering at least one failure/fallback path
     - Include a Mermaid class diagram of schemas, services, Protocols and implementations introduced or changed; omit only when no classes are added
-    - Describe config/secrets injection (pydantic-settings from environment only) and the LTI 1.3 / JWT design when touched (platform registration, JWKS, key rotation, session lifetime)
+    - Describe config/secrets injection (pydantic-settings from environment only) and the LTI 1.3 / JWT design when touched (platform registration, JWKS, key rotation, session lifetime <= 1 h per RNF-03, sign-in <= 3 s P95 per RNF-05)
     - Describe logging and metrics - structured logs with request id, no PII or raw student text in logs
     - List the OWASP API Security Top 10 (2023) and OWASP Top 10 for LLM Applications risks touched (e.g., BOLA, broken auth, prompt injection, insecure output handling, unbounded consumption) and the control for each; none may ship unaddressed
-    - State the test strategy - unit, integration (SQLite and PostgreSQL), contract (OpenAPI snapshot), benchmark and load - and the fakes used (FakeLLMProvider, fake LTI platform, recorded fixtures)
+    - State the test strategy - unit, integration (SQLite and PostgreSQL), contract (OpenAPI snapshot), benchmark (>= 85% accuracy; RF-13 OCR >= 75%) and load (RNF-04 profile - 30 requests/s for 30 min, <= 1% failures, RNF-02 P95 met) - and the fakes used (FakeLLMProvider, fake LTI platform, recorded fixtures)
     - Record decisions with the alternatives discarded and why
   tasks:
     - TDD - for every behavior, the failing test task comes before the implementation task
@@ -57,6 +78,7 @@ rules:
     - Database tasks create an Alembic revision, state its phase, and include a test running upgrade and downgrade on SQLite
     - When the OpenAPI contract changes, include tasks to update the contract snapshot test and to open or update the matching change in frontend/openspec
     - Include tasks to update the Makefile, docker compose, backend/.env.example and backend/CLAUDE.md when commands, services, config or conventions change
+    - When an endpoint in an RNF-02 category is added or changed, include a task to add or update its Locust scenario and check its P95 under the RNF-04 profile (run on demand, not in make check)
     - Keep each task small enough to finish and verify in under 30 minutes
     - Final task is verification - make check (ruff, mypy strict, import-linter, pytest with coverage gate) and a docker compose smoke check of the backend health endpoint
 
@@ -74,4 +96,4 @@ operations:
     guidance:
       - Confirm all tasks are done and make check passes before archiving
       - Update backend/CLAUDE.md if the change introduced new commands, modules, environment variables or conventions
-      - Summarize the outcome, traceability to IEEE 29148 requirements, OpenAPI contract changes for frontend/, and any follow-ups or known limitations
+      - Summarize the outcome, traceability to the SRS requirement IDs (RF/RNF), OpenAPI contract changes for frontend/, and any follow-ups or known limitations
