@@ -1,0 +1,81 @@
+schema: spec-driven
+
+# Stack, architecture, component patterns, testing, security and pnpm commands live in
+# frontend/CLAUDE.md (and root CLAUDE.md). This file holds only what is specific to OpenSpec
+# artifacts and operations for the React + Vite + TypeScript frontend.
+context: |
+  CLAUDE.md is the frontend's operating guide and the source of truth for stack (React, Vite,
+  TypeScript strict mode, MUI + Emotion, KaTeX, pnpm), architecture (feature code grouped under
+  src/modules/<feature>; UI shared by several modules in src/components; reusable hooks, utils,
+  icons, layouts, routes and assets in their own src/ folders; pages are presentational - data
+  comes in through props, events go out through callbacks, components make no API calls),
+  testing (Vitest + Testing Library + jsdom, test files next to the code), and package scripts.
+  Every artifact must conform to it; a change that needs to deviate must say so explicitly in
+  its proposal and design.
+  Academic & UX source of truth: documents under ../docs/ (Anteproyecto, IEEE 29148 SRS,
+  student survey Section F [F1-F7] & Section B [B2-B3], and Figma mockups). Cite them by path
+  and section. The SRS is "Requerimientos funcionales y no funcionales - Cubik IA" (RF-01..RF-14,
+  RNF-01..RNF-09); cite requirements by ID. Quality targets and role visibility rules live in
+  the root openspec/config.yaml.
+  All work goes through the OpenSpec flow (explore -> propose -> apply -> archive). No feature
+  code is written outside an OpenSpec change with approved tasks.
+  Pedagogical & UX constraints:
+  - The UI is embedded inside Aula Extendida (Moodle) via LTI 1.3 iframe (no standalone mobile app).
+  - Visual coherence with Aula Extendida's institutional look & feel is mandatory (project
+    constraint; the SRS has no RNF for it yet - cite the design source once it is in ../docs/).
+  - Mathematical notation (integrals, limits, matrices, fractions) must render cleanly in LaTeX,
+    since RF-01 requires every step shown with its mathematical justification.
+  - Compatibility (RNF-08): the two latest versions of Chrome, Firefox, Edge and Safari, and
+    viewport widths from 360 to 1920 px inside the Moodle iframe.
+  - Explicit confirmations: a complete solution is shown only after the student confirms it
+    (RF-03); OCR-digitized work is sent to evaluation only after the student confirms it
+    (RF-14). Neither happens automatically.
+  - Long operations stream or show progress: LLM answers stream; OCR may take up to its RNF-02
+    target (56 s P95), so the UI never times out a request before the RNF-02 target of its
+    category.
+
+rules:
+  proposal:
+    - Reference the requirement ID(s) (RF/RNF) or UX finding(s) in ../docs/ that motivate the change (path + section)
+    - State the user-facing or pedagogical outcome (e.g., clearer prompt input, step-by-step scaffolding UI, LaTeX readability, teacher analytics view)
+    - State explicitly what is in scope and out of scope (e.g., UI state & API integration in scope; backend LLM logic or Moodle PHP plugins out of scope)
+    - Identify any role-based UI visibility impact (Estudiante vs. Docente)
+    - State whether the change modifies shared API contracts/DTOs with backend/
+    - Keep it under 400 words
+  specs:
+    - Every requirement must trace to an RF/RNF ID of the SRS or to a survey item in ../docs/ (e.g., F1-F7, B2-B3, D6); scenarios keep the SRS metric (e.g., RF-05 three levels ordered by difficulty, RF-06 error explanation on every wrong answer)
+    - Write scenarios in GIVEN/WHEN/THEN covering user interactions, states, and edge cases; each scenario must be directly translatable into a Vitest / React Testing Library test
+    - Cover loading, streaming, empty, and error/degraded states (LLM streaming response, invalid math/LaTeX syntax fallback, API 401 expired LTI session, 403 insufficient role, 413/415 rejected image upload, 429 rate limit, 503 backend unavailable)
+    - Specify role-based rendering rules (Estudiante chat/history/prompt templates vs. Docente dashboard/restrictions)
+    - Specify accessibility (WCAG AA contrast, keyboard navigation) and responsive behavior inside a Moodle iframe viewport from 360 to 1920 px wide (RNF-08)
+  design:
+    - Place every new or modified file in its src/ folder (modules/<feature>, components for UI shared by several modules, hooks, utils for framework-independent helpers, icon, layouts, routes, assets) and keep UI components free of direct fetch/axios calls - data comes in through props or hooks
+    - Define TypeScript types for all backend API requests, SSE/WebSocket streaming chunks, and error payloads, and keep them in sync with the backend OpenAPI document
+    - Specify math rendering details (KaTeX options such as trust and throwOnError, fallback for malformed LaTeX, how rendered HTML is injected) and any visualization needed (e.g., interactive function plotting for B2/B3)
+    - Include a Mermaid component tree or state-flow diagram for complex interactive flows (e.g., step-by-step tutor chat, prompt builder, LTI session bootstrap)
+    - Include a Mermaid sequence diagram when introducing new frontend <-> backend API interactions (covering loading and error states)
+    - List frontend security risks (XSS via rendered LLM Markdown/LaTeX, CSRF/token storage inside cross-origin LTI iframe, open redirects) and the control for each (e.g., output sanitization, KaTeX trust left off, memory/sessionStorage token handling)
+    - State the test strategy - which component behaviors, custom hooks, and mocked API states (fixtures or test doubles) are covered
+    - Record UI/UX or library decisions with the alternatives discarded and why
+  tasks:
+    - TDD - for every component behavior or hook, the failing test task (Vitest/RTL) comes before the implementation task
+    - Order work inside out - types, API client/adapters (when the change adds one), custom hooks/state, UI components, view integration
+    - Include tasks to update frontend/.env.example, Dockerfile, or root docker-compose.yml when environment variables (e.g., VITE_API_URL) or build args change
+    - Keep each task small enough to finish and verify in under 30 minutes
+    - Keep test coverage >= 70% on the modules the change touches when they are critical (chat, solution release, OCR edit and confirm, docente analytics) per RNF-07; the first change that needs it adds the coverage script
+    - Final task is verification - pnpm run lint, pnpm run test and pnpm run build (type-check + production build) all pass
+
+operations:
+  apply:
+    guidance:
+      - Read and follow frontend/CLAUDE.md before starting; it is the frontend operating guide
+      - Work test-first - write the failing component/hook test, run it to confirm failure, implement the minimum UI/logic to pass, then refactor
+      - Use fixtures aligned with backend contracts for data the UI shows before it is connected; never hardcode production URLs or secrets
+      - Run scripts with pnpm run <script> (see frontend/CLAUDE.md for the list)
+      - Implement only what the change's tasks describe; propose a change update for new scope
+      - Report lint, test, and build (type-check) results faithfully, including failures
+  archive:
+    guidance:
+      - Confirm all tasks are done and pnpm run lint, pnpm run test and pnpm run build (type-check included) pass before archiving
+      - Update frontend/CLAUDE.md if the change introduced new UI conventions, libraries, or scripts
+      - Summarize the archive outcome, traceability to the SRS requirement IDs (RF/RNF) / survey items (F1-F7), and any follow-ups or known limitations
