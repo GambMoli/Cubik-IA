@@ -2,9 +2,10 @@ schema: spec-driven
 
 # Cross-cutting rules for the whole monorepo. Component-specific rules live in
 # backend/openspec/config.yaml and frontend/openspec/config.yaml, and their operating guides
-# in backend/CLAUDE.md and frontend/CLAUDE.md. Use root-level changes only for work that
-# spans components (e.g., a feature touching backend + frontend + Moodle LTI registration,
-# docker compose, deployment).
+# in backend/CLAUDE.md and frontend/CLAUDE.md. The root CLAUDE.md is the monorepo guide
+# (layout, Moodle boundary, docker compose commands, environment and secrets rules).
+# Use root-level changes only for work that spans components (e.g., a feature touching
+# backend + frontend + Moodle LTI registration, docker compose, deployment).
 context: |
   Cubik-IA is a monorepo: moodle/ (Aula Extendida, Moodle 4.5, never modified - integration
   only via LTI 1.3 / LTI Advantage and Web Services), backend/ (Python modular monolith,
@@ -44,7 +45,7 @@ rules:
 operations:
   apply:
     guidance:
-      - Read the CLAUDE.md of every component the change touches before starting
+      - Read the root CLAUDE.md and the CLAUDE.md of every component the change touches before starting
       - Implement only what the change's tasks describe; propose a change update for new scope
       - Report verification results faithfully, including failures
   archive:

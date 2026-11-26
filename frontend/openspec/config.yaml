@@ -1,13 +1,15 @@
 schema: spec-driven
 
-# Stack, architecture, component patterns, testing, security and npm/pnpm commands live in
+# Stack, architecture, component patterns, testing, security and pnpm commands live in
 # frontend/CLAUDE.md (and root CLAUDE.md). This file holds only what is specific to OpenSpec
 # artifacts and operations for the React + Vite + TypeScript frontend.
 context: |
   CLAUDE.md is the frontend's operating guide and the source of truth for stack (React, Vite,
-  TypeScript strict mode, Tailwind/CSS, KaTeX/MathJax, graphing libraries), architecture
-  (feature-sliced / clean frontend separation: ui -> hooks -> services/api -> types),
-  testing (Vitest + React Testing Library + Playwright/MSW), and package scripts.
+  TypeScript strict mode, MUI + Emotion, KaTeX, pnpm), architecture (feature code grouped under
+  src/modules/<feature>; UI shared by several modules in src/components; reusable hooks, utils,
+  icons, layouts, routes and assets in their own src/ folders; pages are presentational - data
+  comes in through props, events go out through callbacks, components make no API calls),
+  testing (Vitest + Testing Library + jsdom, test files next to the code), and package scripts.
   Every artifact must conform to it; a change that needs to deviate must say so explicitly in
   its proposal and design.
   Academic & UX source of truth: documents under ../docs/ (Anteproyecto, IEEE 29148 SRS,
@@ -35,31 +37,32 @@ rules:
     - Specify role-based rendering rules (Estudiante chat/history/prompt templates vs. Docente dashboard/restrictions)
     - Specify accessibility (WCAG AA contrast, keyboard navigation) and responsive behavior inside a Moodle iframe viewport
   design:
-    - Map every new or modified module to its frontend layer (pages/views, features/components, hooks/state, api-client/adapters, types/schemas) and ensure UI components never call fetch/axios directly
-    - Define TypeScript interfaces/Zod schemas for all backend API requests, SSE/WebSocket streaming chunks, and error payloads
-    - Specify math rendering and visualization details (e.g., KaTeX/MathJax sanitization, interactive function plotting for B2/B3)
+    - Place every new or modified file in its src/ folder (modules/<feature>, components for UI shared by several modules, hooks, utils for framework-independent helpers, icon, layouts, routes, assets) and keep UI components free of direct fetch/axios calls - data comes in through props or hooks
+    - Define TypeScript types for all backend API requests, SSE/WebSocket streaming chunks, and error payloads, and keep them in sync with the backend OpenAPI document
+    - Specify math rendering details (KaTeX options such as trust and throwOnError, fallback for malformed LaTeX, how rendered HTML is injected) and any visualization needed (e.g., interactive function plotting for B2/B3)
     - Include a Mermaid component tree or state-flow diagram for complex interactive flows (e.g., step-by-step tutor chat, prompt builder, LTI session bootstrap)
     - Include a Mermaid sequence diagram when introducing new frontend <-> backend API interactions (covering loading and error states)
-    - List frontend security risks (XSS via rendered LLM Markdown/LaTeX, CSRF/token storage inside cross-origin LTI iframe, open redirects) and the control for each (e.g., DOMPurify, memory/sessionStorage token handling)
-    - State the test strategy - which component behaviors, custom hooks, and mocked API states (MSW) are covered
+    - List frontend security risks (XSS via rendered LLM Markdown/LaTeX, CSRF/token storage inside cross-origin LTI iframe, open redirects) and the control for each (e.g., output sanitization, KaTeX trust left off, memory/sessionStorage token handling)
+    - State the test strategy - which component behaviors, custom hooks, and mocked API states (fixtures or test doubles) are covered
     - Record UI/UX or library decisions with the alternatives discarded and why
   tasks:
     - TDD - for every component behavior or hook, the failing test task (Vitest/RTL) comes before the implementation task
-    - Order work inside out - types/Zod schemas, API client/adapters, custom hooks/state, UI components, view integration
+    - Order work inside out - types, API client/adapters (when the change adds one), custom hooks/state, UI components, view integration
     - Include tasks to update frontend/.env.example, Dockerfile, or root docker-compose.yml when environment variables (e.g., VITE_API_URL) or build args change
     - Keep each task small enough to finish and verify in under 30 minutes
-    - Final task is verification - lint (eslint/biome), typecheck (tsc --noEmit), unit/component tests (vitest run), and production build check (vite build)
+    - Final task is verification - pnpm run lint, pnpm run test and pnpm run build (type-check + production build) all pass
 
 operations:
   apply:
     guidance:
       - Read and follow frontend/CLAUDE.md before starting; it is the frontend operating guide
       - Work test-first - write the failing component/hook test, run it to confirm failure, implement the minimum UI/logic to pass, then refactor
-      - Use mocked API responses (MSW/fixtures) aligned with backend contracts; never hardcode production URLs or secrets
+      - Use fixtures aligned with backend contracts for data the UI shows before it is connected; never hardcode production URLs or secrets
+      - Run scripts with pnpm run <script> (see frontend/CLAUDE.md for the list)
       - Implement only what the change's tasks describe; propose a change update for new scope
-      - Report test, typecheck, and build results faithfully, including failures
+      - Report lint, test, and build (type-check) results faithfully, including failures
   archive:
     guidance:
-      - Confirm all tasks are done and lint + typecheck + tests + build pass before archiving
+      - Confirm all tasks are done and pnpm run lint, pnpm run test and pnpm run build (type-check included) pass before archiving
       - Update frontend/CLAUDE.md if the change introduced new UI conventions, libraries, or scripts
       - Summarize the archive outcome, traceability to IEEE 29148 / survey items (F1-F7), and any follow-ups or known limitations
